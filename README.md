@@ -106,35 +106,40 @@ outputs, and adhere to any given constraints.
     - Download from: https://www.graphviz.org/download/
     - Add install directory `C:\Program Files (x86)\Graphviz2.38\bin` to PATH
 
-3. Run the following as admin to configure GraphViz:
+3. Install C++ Build Tools:
+    - Download from: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+    - In Visual Studio Installer, click "Modify" on Visual Studio Build Tools and make sure "Desktop development with
+      C++" is checked.
+
+4. Run the following as admin to configure GraphViz:
    ```cmd
    dot -c
    ```
 
-4. Clone repo (in directory of you choosing)
+5. Clone repo (in directory of you choosing)
    ```cmd
    git clone https://github.com/ScottJDaley/ada.git
    ```
 
-5. Move inside the repo
+6. Move inside the repo
    ```cmd
    cd ada
    ```
 
-6. Create virtual environment and activate it
+7. Create virtual environment and activate it
 
    ```cmd
    py -m venv venv
    ```
 
-7. Active the virtual environment
+8. Active the virtual environment
    ```cmd
    venv\Scripts\activate
    ```
 
    :bulb: You may deactivate the virtual environment with `deactivate`
 
-8. Install python modules
+9. Install python modules
    ```cmd
    py -m pip install -r requirements.txt
    ```
