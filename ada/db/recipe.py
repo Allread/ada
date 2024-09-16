@@ -7,6 +7,8 @@ from .item import Item
 
 
 def parse_list(raw: str) -> List[str]:
+    if len(raw) == 0:
+        return []
     if raw.startswith("(("):
         return raw[2:-2].split("),(")
     return raw[1:-1].split(",")
@@ -17,6 +19,7 @@ def parse_recipe_item(raw: str) -> Tuple[str, int]:
     component_map = {}
     for component in components:
         key_value = component.split("=")
+        print(key_value)
         component_map[key_value[0]] = key_value[1]
     class_name = component_map["ItemClass"].split(".")[-1][:-2]
     return class_name, int(component_map["Amount"])
@@ -47,6 +50,7 @@ class Recipe(Entity):
     def __init__(self, data: Dict[str, str], items, crafters) -> None:
         self.__data = data
         self.__crafter = None
+        print("Recipe" + self.human_readable_name())
         producers = parse_list(data["mProducedIn"])
         for producer in producers:
             if len(producer) == 0:

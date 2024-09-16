@@ -1,4 +1,4 @@
-# JSON data should be copied from {Install Directory}\CommunityResources\Docs\Docs.json
+# JSON data should be copied from {Install Directory}\CommunityResources\Docs\[language].json
 # into data\Docs.json
 
 import json
