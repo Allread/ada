@@ -770,7 +770,7 @@ class Optimizer:
         # Write out complete problem to file
         filename = "output" + os.path.sep + "problem.txt"
         os.makedirs(os.path.dirname(filename), exist_ok=True)
-        with open(filename, "w") as f:
+        with open(filename, "w", encoding="utf-8") as f:
             f.write(str(prob))
 
         # Solve
