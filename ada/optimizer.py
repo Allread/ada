@@ -552,120 +552,6 @@ class Optimizer:
         alternate_coeffs[self.__variables[ALTERNATE_RECIPES]] = -1
         self.__equalities.append(pulp.LpAffineExpression(alternate_coeffs) == 0)
 
-    def enable_related_recipes(
-            self, query: OptimizationQuery, prob: LpProblem, debug: bool = False
-    ) -> None:
-        query_vars = query.query_vars()
-        if UNWEIGHTED_RESOURCES in query_vars:
-            return
-        if WEIGHTED_RESOURCES in query_vars:
-            return
-        if MEAN_WEIGHTED_RESOURCES in query_vars:
-            return
-
-        # Find inputs and outputs
-        inputs = []
-        outputs = []
-
-        for category in query.inputs().values():
-            for input_var, input in category.elements.items():
-                if input_var not in self.__db.items() and input_var != POWER:
-                    continue
-                if isinstance(input.value, AmountValue) and input.value.value == 0:
-                    continue
-                inputs.append(input_var)
-        for output_var, output in query.outputs().elements.items():
-            if output_var not in self.__db.items() and output_var != POWER:
-                continue
-            if isinstance(output.value, AmountValue) and output.value.value == 0:
-                continue
-            outputs.append(output_var)
-
-        # print("inputs:", inputs, "outputs:", outputs)
-
-        connected = set()
-
-        # If there is a path from var to the query_input_var, then add all
-        # connected recipes.
-
-        def check(input_var, var, connected: set, stack):
-            # print("Checking if", var, "is connected to", input_var)
-            if var == input_var:
-                if debug:
-                    print("Found connection!")
-                    print("  " + " -> ".join(reversed(stack)))
-                return True
-            # if var.startswith("resource:"):
-            #     return False
-            if len(self.__db.recipes_for_product(var)) == 0:
-                return False
-            is_var_connected = False
-            for recipe in self.__db.recipes_for_product(var):
-                # print("Checking recipe", recipe.var(), "for product", var)
-                if recipe.var() in connected:
-                    # print("Recipe already connected")
-                    is_var_connected = True
-                    continue
-                if recipe.var() in stack:
-                    # print("Recipe already in stack")
-                    continue
-                if recipe.is_craftable_in_building() and recipe.crafter().var() == "crafter:packager":
-                    # We don't want to use the packager recipes to find connections between inputs and outputs
-                    # print("Recipe not craftable in building or package recipe")
-                    continue
-                stack.append(recipe.var())
-                # print("Connected:", connected)
-                for ingredient in recipe.ingredients():
-                    stack.append(ingredient)
-                    if ingredient == "item:water":
-                        continue
-                    if check(input_var, ingredient, connected, stack):
-                        connected.update(stack)
-                        # print("Recipe", recipe.var(), "is connected, connected:", connected)
-                        is_var_connected = True
-                    stack.pop()
-                stack.pop()
-            return is_var_connected
-
-        for input_var in inputs:
-            if input_var == POWER:
-                # Nothing to do for power input
-                continue
-            for output_var in outputs:
-                if output_var == POWER:
-                    for power_recipe in self.__db.power_recipes().values():
-                        fuel_var = power_recipe.fuel_item().var()
-                        stack = [fuel_var]
-                        if debug:
-                            print(
-                                "\nChecking connection from", input_var, "to", fuel_var
-                            )
-                        if check(input_var, fuel_var, connected, stack):
-                            if debug:
-                                print("enabling connected:", connected)
-                                print("enabling power recipe:", power_recipe.var())
-                            connected.add(power_recipe.var())
-
-                else:
-                    stack = [output_var]
-                    if debug:
-                        print("\nChecking connection from", input_var, "to", output_var)
-                    if check(input_var, output_var, connected, stack):
-                        if debug:
-                            print("Found connection from", input_var, "to", output_var)
-
-        if debug:
-            print("Connected:", connected)
-
-        # Disable any disconnected recipes.
-        for recipe_var in self.__db.recipes():
-            if recipe_var not in connected:
-                prob += self.__variables[recipe_var] == 0
-        for power_recipe_var in self.__db.power_recipes():
-            if power_recipe_var not in connected:
-                # print("disabling power recipe", power_recipe_var)
-                prob += self.__variables[power_recipe_var] == 0
-
     async def optimize(self, query: OptimizationQuery) -> OptimizationResult:
         if self.__debug:
             print("called optimize() with query:\n\n" + str(query) + "\n")
@@ -747,8 +633,6 @@ class Optimizer:
                 prob.addConstraint(
                     self.__variables[power_recipe_var] == 0, power_recipe_var
                 )
-
-        self.enable_related_recipes(query, prob, debug=self.__debug)
 
         # Disable power recipes unless the query specifies something about power
         if not query.has_power_output():
