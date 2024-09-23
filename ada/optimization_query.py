@@ -20,7 +20,6 @@ class AmountValue:
     def __str__(self, ):
         return str(self.value)
 
-
 class Input:
     def __init__(self, var: str, value: AmountValue | MaximizeValue | AnyValue):
         self.var = var
@@ -87,7 +86,7 @@ class OptimizationQuery(Query):
         return self.__objective is not None
 
     def add_output(self, var: str, value: AmountValue | MaximizeValue | AnyValue = AnyValue(), strict: bool = False):
-        print(f"Adding output, var={var}, amount={value}, strict={strict}")
+        # print(f"Adding output, var={var}, amount={value}, strict={strict}")
         output = Output(var, value)
         if isinstance(value, MaximizeValue):
             self.__objective = output

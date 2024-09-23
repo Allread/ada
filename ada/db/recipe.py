@@ -186,6 +186,18 @@ class Recipe(Entity):
     def is_craftable_in_building(self) -> bool:
         return self.__crafter is not None
 
+    def is_variable_power(self) -> bool:
+        return self.is_craftable_in_building() and float(self.__data["mVariablePowerConsumptionConstant"]) > 0
+
+    def power_consumption(self) -> float:
+        if not self.is_craftable_in_building():
+            return 0
+        if not self.is_variable_power():
+            return self.crafter().power_consumption()
+        min_power = float(self.__data["mVariablePowerConsumptionConstant"])
+        max_power = min_power + float(self.__data["mVariablePowerConsumptionFactor"])
+        return (max_power + min_power) / 2
+
     def fields(self) -> list[tuple[str, str]]:
         ingredients = "\n".join(
             [ing.human_readable_name() for ing in self.ingredients().values()]

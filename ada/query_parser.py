@@ -97,7 +97,7 @@ class QueryParser:
             | StringEnd()
     )
     entity_expr = Combine(
-        OneOrMore(~entity_expr_end + Word(alphas + nums + ":.*-")),
+        OneOrMore(~entity_expr_end + Word(alphas + nums + ":.*-()")),
         joinString=" ",
         adjacent=False,
     )("entity")

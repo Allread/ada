@@ -468,12 +468,12 @@ class Optimizer:
             var_coeff[self.__variables[generator_var]] = -1
             self.__equalities.append(pulp.LpAffineExpression(var_coeff) == 0)
 
-        # Create a single power equality for all crafters and generators
+        # Create a single power equality for all recipes and generators
         power_coeff = {}
         for generator_var, generator in self.__db.generators().items():
             power_coeff[self.__variables[generator_var]] = -generator.power_production()
-        for crafter_var, crafter in self.__db.crafters().items():
-            power_coeff[self.__variables[crafter_var]] = crafter.power_consumption()
+        for recipe_var, recipe in self.__db.recipes().items():
+            power_coeff[self.__variables[recipe_var]] = recipe.power_consumption()
         power_coeff[self.__variables["power"]] = -1
         self.__equalities.append(pulp.LpAffineExpression(power_coeff) == 0)
 
@@ -489,6 +489,7 @@ class Optimizer:
             self.__variables["item:raw-quartz"]: 1,
             self.__variables["item:sulfur"]: 1,
             self.__variables["item:nitrogen-gas"]: 1,
+            self.__variables["item:sam"]: 1,
             self.__variables[UNWEIGHTED_RESOURCES]: -1,
         }
         self.__equalities.append(pulp.LpAffineExpression(unweighted_resources) == 0)
@@ -506,6 +507,7 @@ class Optimizer:
             self.__variables["item:raw-quartz"]: 6.36,
             self.__variables["item:sulfur"]: 13.33,
             self.__variables["item:nitrogen-gas"]: 4.5,  # TODO
+            self.__variables["item:sam"]: 9, # TODO
             self.__variables[WEIGHTED_RESOURCES]: -1,
         }
         self.__equalities.append(pulp.LpAffineExpression(weighted_resources) == 0)
@@ -523,22 +525,25 @@ class Optimizer:
             self.__variables["item:raw-quartz"]: 2.52,
             self.__variables["item:sulfur"]: 3.65,
             self.__variables["item:nitrogen-gas"]: 2.2,  # TODO
+            self.__variables["item:sam"]: 3.6, # TODO
             self.__variables[MEAN_WEIGHTED_RESOURCES]: -1,
         }
         self.__equalities.append(pulp.LpAffineExpression(mean_weighted_resources) == 0)
 
         # Map resource limits
-        self.__equalities.append(self.__variables["item:iron-ore"] >= -70380)
-        self.__equalities.append(self.__variables["item:copper-ore"] >= -70380)
-        self.__equalities.append(self.__variables["item:limestone"] >= -70380)
-        self.__equalities.append(self.__variables["item:coal"] >= -70380)
-        self.__equalities.append(self.__variables["item:crude-oil"] >= -70380)
-        self.__equalities.append(self.__variables["item:bauxite"] >= -70380)
-        self.__equalities.append(self.__variables["item:caterium-ore"] >= -70380)
-        self.__equalities.append(self.__variables["item:uranium"] >= -70380)
-        self.__equalities.append(self.__variables["item:raw-quartz"] >= -70380)
-        self.__equalities.append(self.__variables["item:sulfur"] >= -70380)
-        self.__equalities.append(self.__variables["item:nitrogen-gas"] >= -70380)
+        self.__equalities.append(self.__variables["item:iron-ore"] >= -92100)
+        self.__equalities.append(self.__variables["item:copper-ore"] >= -36900)
+        self.__equalities.append(self.__variables["item:limestone"] >= -69900)
+        self.__equalities.append(self.__variables["item:coal"] >= -42300)
+        self.__equalities.append(self.__variables["item:crude-oil"] >= -12600)
+        self.__equalities.append(self.__variables["item:bauxite"] >= -12300)
+        self.__equalities.append(self.__variables["item:caterium-ore"] >= -15000)
+        self.__equalities.append(self.__variables["item:uranium"] >= -2100)
+        self.__equalities.append(self.__variables["item:raw-quartz"] >= -13500)
+        self.__equalities.append(self.__variables["item:sulfur"] >= -10800)
+        self.__equalities.append(self.__variables["item:nitrogen-gas"] >= -12000)
+        self.__equalities.append(self.__variables["item:sam"] >= -10200)
+        self.__equalities.append(self.__variables["item:water"] >= -9007199254740991)
 
         alternate_coeffs = {}
         for recipe in self.__db.recipes().values():
@@ -546,120 +551,6 @@ class Optimizer:
                 alternate_coeffs[self.__variables[recipe.var()]] = 1
         alternate_coeffs[self.__variables[ALTERNATE_RECIPES]] = -1
         self.__equalities.append(pulp.LpAffineExpression(alternate_coeffs) == 0)
-
-    def enable_related_recipes(
-            self, query: OptimizationQuery, prob: LpProblem, debug: bool = False
-    ) -> None:
-        query_vars = query.query_vars()
-        if UNWEIGHTED_RESOURCES in query_vars:
-            return
-        if WEIGHTED_RESOURCES in query_vars:
-            return
-        if MEAN_WEIGHTED_RESOURCES in query_vars:
-            return
-
-        # Find inputs and outputs
-        inputs = []
-        outputs = []
-
-        for category in query.inputs().values():
-            for input_var, input in category.elements.items():
-                if input_var not in self.__db.items() and input_var != POWER:
-                    continue
-                if isinstance(input.value, AmountValue) and input.value.value == 0:
-                    continue
-                inputs.append(input_var)
-        for output_var, output in query.outputs().elements.items():
-            if output_var not in self.__db.items() and output_var != POWER:
-                continue
-            if isinstance(output.value, AmountValue) and output.value.value == 0:
-                continue
-            outputs.append(output_var)
-
-        # print("inputs:", inputs, "outputs:", outputs)
-
-        connected = set()
-
-        # If there is a path from var to the query_input_var, then add all
-        # connected recipes.
-
-        def check(input_var, var, connected: set, stack):
-            # print("Checking if", var, "is connected to", input_var)
-            if var == input_var:
-                if debug:
-                    print("Found connection!")
-                    print("  " + " -> ".join(reversed(stack)))
-                return True
-            # if var.startswith("resource:"):
-            #     return False
-            if len(self.__db.recipes_for_product(var)) == 0:
-                return False
-            is_var_connected = False
-            for recipe in self.__db.recipes_for_product(var):
-                # print("Checking recipe", recipe.var(), "for product", var)
-                if recipe.var() in connected:
-                    # print("Recipe already connected")
-                    is_var_connected = True
-                    continue
-                if recipe.var() in stack:
-                    # print("Recipe already in stack")
-                    continue
-                if recipe.is_craftable_in_building() and recipe.crafter().var() == "crafter:packager":
-                    # We don't want to use the packager recipes to find connections between inputs and outputs
-                    # print("Recipe not craftable in building or package recipe")
-                    continue
-                stack.append(recipe.var())
-                # print("Connected:", connected)
-                for ingredient in recipe.ingredients():
-                    stack.append(ingredient)
-                    if ingredient == "item:water":
-                        continue
-                    if check(input_var, ingredient, connected, stack):
-                        connected.update(stack)
-                        # print("Recipe", recipe.var(), "is connected, connected:", connected)
-                        is_var_connected = True
-                    stack.pop()
-                stack.pop()
-            return is_var_connected
-
-        for input_var in inputs:
-            if input_var == POWER:
-                # Nothing to do for power input
-                continue
-            for output_var in outputs:
-                if output_var == POWER:
-                    for power_recipe in self.__db.power_recipes().values():
-                        fuel_var = power_recipe.fuel_item().var()
-                        stack = [fuel_var]
-                        if debug:
-                            print(
-                                "\nChecking connection from", input_var, "to", fuel_var
-                            )
-                        if check(input_var, fuel_var, connected, stack):
-                            if debug:
-                                print("enabling connected:", connected)
-                                print("enabling power recipe:", power_recipe.var())
-                            connected.add(power_recipe.var())
-
-                else:
-                    stack = [output_var]
-                    if debug:
-                        print("\nChecking connection from", input_var, "to", output_var)
-                    if check(input_var, output_var, connected, stack):
-                        if debug:
-                            print("Found connection from", input_var, "to", output_var)
-
-        if debug:
-            print("Connected:", connected)
-
-        # Disable any disconnected recipes.
-        for recipe_var in self.__db.recipes():
-            if recipe_var not in connected:
-                prob += self.__variables[recipe_var] == 0
-        for power_recipe_var in self.__db.power_recipes():
-            if power_recipe_var not in connected:
-                # print("disabling power recipe", power_recipe_var)
-                prob += self.__variables[power_recipe_var] == 0
 
     async def optimize(self, query: OptimizationQuery) -> OptimizationResult:
         if self.__debug:
@@ -687,7 +578,7 @@ class Optimizer:
                 elif isinstance(input.value, AnyValue):
                     prob += variable <= 0
                 elif isinstance(input.value, MaximizeValue):
-                    prob += -variable
+                    prob += -variable - 0.00001 * self.__variables[POWER]
 
         for output_var, output in query.outputs().elements.items():
             variable = self.__variables[output_var]
@@ -696,7 +587,7 @@ class Optimizer:
             elif isinstance(output.value, AnyValue):
                 prob += variable >= 0
             elif isinstance(output.value, MaximizeValue):
-                prob += variable
+                prob += variable + 0.00001 * self.__variables[POWER]
 
         # Display the problem before all recipes are added
         # print("Problem:", prob)
@@ -743,8 +634,6 @@ class Optimizer:
                     self.__variables[power_recipe_var] == 0, power_recipe_var
                 )
 
-        self.enable_related_recipes(query, prob, debug=self.__debug)
-
         # Disable power recipes unless the query specifies something about power
         if not query.has_power_output():
             for power_recipe_var in self.__db.power_recipes():
@@ -770,7 +659,7 @@ class Optimizer:
         # Write out complete problem to file
         filename = "output" + os.path.sep + "problem.txt"
         os.makedirs(os.path.dirname(filename), exist_ok=True)
-        with open(filename, "w") as f:
+        with open(filename, "w", encoding="utf-8") as f:
             f.write(str(prob))
 
         # Solve

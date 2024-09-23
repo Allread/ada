@@ -7,7 +7,7 @@ from ..breadcrumbs import Breadcrumbs
 from ..dispatch import Dispatch
 from ..result_message import ResultMessage
 from ...db.entity import Entity
-from ...optimization_query import MaximizeValue, OptimizationQuery
+from ...optimization_query import MaximizeValue, AmountValue, OptimizationQuery
 from ...optimization_result_data import OptimizationResultData
 from ...optimizer import OptimizationResult
 from ...query_parser import QueryParseException
@@ -299,7 +299,7 @@ class InputCategoryView(OptimizationSelectorView):
         self.add_item(
             EditQueryButton(
                 custom_id="input_exclude",
-                edit_query=(lambda q, var: q.add_input(var, 0, False)),
+                edit_query=(lambda q, var: q.add_input(var, AmountValue(0), False)),
                 dispatch=self.dispatch()
             )
         )
@@ -358,7 +358,7 @@ class OutputsCategoryView(OptimizationSelectorView):
         self.add_item(
             EditQueryButton(
                 custom_id="output_exclude",
-                edit_query=(lambda q, var: q.add_output(var, 0, False)),
+                edit_query=(lambda q, var: q.add_output(var, AmountValue(0), False)),
                 dispatch=self.dispatch()
             )
         )
@@ -409,7 +409,7 @@ class RecipesCategoryView(OptimizationSelectorView):
         self.add_item(
             EditQueryButton(
                 custom_id="recipe_exclude",
-                edit_query=(lambda q, var: q.add_exclude(var)),
+                edit_query=(lambda q, var: q.add_input(var, AmountValue(0), False)),
                 dispatch=self.dispatch()
             )
         )
@@ -447,7 +447,7 @@ class BuildingsCategoryView(OptimizationSelectorView):
         self.add_item(
             EditQueryButton(
                 custom_id="building_exclude",
-                edit_query=(lambda q, var: q.add_exclude(var)),
+                edit_query=(lambda q, var: q.add_input(var, AmountValue(0), False)),
                 dispatch=self.dispatch()
             )
         )
