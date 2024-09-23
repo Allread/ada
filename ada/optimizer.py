@@ -489,6 +489,7 @@ class Optimizer:
             self.__variables["item:raw-quartz"]: 1,
             self.__variables["item:sulfur"]: 1,
             self.__variables["item:nitrogen-gas"]: 1,
+            self.__variables["item:sam"]: 1,
             self.__variables[UNWEIGHTED_RESOURCES]: -1,
         }
         self.__equalities.append(pulp.LpAffineExpression(unweighted_resources) == 0)
@@ -506,6 +507,7 @@ class Optimizer:
             self.__variables["item:raw-quartz"]: 6.36,
             self.__variables["item:sulfur"]: 13.33,
             self.__variables["item:nitrogen-gas"]: 4.5,  # TODO
+            self.__variables["item:sam"]: 9, # TODO
             self.__variables[WEIGHTED_RESOURCES]: -1,
         }
         self.__equalities.append(pulp.LpAffineExpression(weighted_resources) == 0)
@@ -523,6 +525,7 @@ class Optimizer:
             self.__variables["item:raw-quartz"]: 2.52,
             self.__variables["item:sulfur"]: 3.65,
             self.__variables["item:nitrogen-gas"]: 2.2,  # TODO
+            self.__variables["item:sam"]: 3.6, # TODO
             self.__variables[MEAN_WEIGHTED_RESOURCES]: -1,
         }
         self.__equalities.append(pulp.LpAffineExpression(mean_weighted_resources) == 0)
