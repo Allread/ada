@@ -692,7 +692,7 @@ class Optimizer:
                 elif isinstance(input.value, AnyValue):
                     prob += variable <= 0
                 elif isinstance(input.value, MaximizeValue):
-                    prob += -variable
+                    prob += -variable - 0.00001 * self.__variables[POWER]
 
         for output_var, output in query.outputs().elements.items():
             variable = self.__variables[output_var]
@@ -701,7 +701,7 @@ class Optimizer:
             elif isinstance(output.value, AnyValue):
                 prob += variable >= 0
             elif isinstance(output.value, MaximizeValue):
-                prob += variable
+                prob += variable + 0.00001 * self.__variables[POWER]
 
         # Display the problem before all recipes are added
         # print("Problem:", prob)
