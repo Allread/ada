@@ -29,6 +29,7 @@ ITEM_CLASSES = [
 ]
 CRAFTER_CLASSES = [
     "FGBuildableManufacturer",
+    "FGBuildableManufacturerVariablePower"
 ]
 EXTRACTOR_CLASSES = [
     "FGBuildableResourceExtractor",

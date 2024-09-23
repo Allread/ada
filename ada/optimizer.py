@@ -468,12 +468,12 @@ class Optimizer:
             var_coeff[self.__variables[generator_var]] = -1
             self.__equalities.append(pulp.LpAffineExpression(var_coeff) == 0)
 
-        # Create a single power equality for all crafters and generators
+        # Create a single power equality for all recipes and generators
         power_coeff = {}
         for generator_var, generator in self.__db.generators().items():
             power_coeff[self.__variables[generator_var]] = -generator.power_production()
-        for crafter_var, crafter in self.__db.crafters().items():
-            power_coeff[self.__variables[crafter_var]] = crafter.power_consumption()
+        for recipe_var, recipe in self.__db.recipes().items():
+            power_coeff[self.__variables[recipe_var]] = recipe.power_consumption()
         power_coeff[self.__variables["power"]] = -1
         self.__equalities.append(pulp.LpAffineExpression(power_coeff) == 0)
 
