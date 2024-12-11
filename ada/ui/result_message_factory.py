@@ -123,6 +123,9 @@ class ResultMessageFactory:
             description += section + "\n\n"
         # descriptions.append(curr_description)
 
+        print("Building embed with description:", description)
+        description = (description[:4000] + '\n\n...') if len(description) > 4000 else description
+
         message.embed.description = description
 
         filename = "output.gv"
