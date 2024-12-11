@@ -49,6 +49,7 @@ AND = CaselessKeyword("and")
 OR = CaselessKeyword("or")
 NOR = CaselessKeyword("nor")
 POWER = CaselessKeyword("power")
+SINK = CaselessKeyword("sink")
 SPACE = CaselessKeyword("space")
 RESOURCES = CaselessKeyword("resources")
 UNWEIGHTED_RESOURCES = CaselessKeyword("unweighted resources") | CaselessKeyword("unweighted-resources")
@@ -104,7 +105,7 @@ class QueryParser:
 
     # TODO: Consider allowing all literals in grammar and then enforce it during
     # validation step.
-    output_literal = POWER("power")("literal")
+    output_literal = (POWER | SINK)("literal")
     output_var = output_literal | entity_expr
 
     input_literal = (POWER | unweighted_resources_kw | weighted_resources_kw | alternate_recipes_kw)(
