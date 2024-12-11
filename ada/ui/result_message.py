@@ -18,7 +18,8 @@ class ResultMessage:
         self.view: discord.ui.View = discord.utils.MISSING
 
     async def send(self, interaction: discord.Interaction):
-        await interaction.response.send_message(
+        await interaction.response.defer()
+        await interaction.followup.send(
             content=self.breadcrumbs.format_content(self.content),
             embed=self.embed if self.embed else discord.utils.MISSING,
             file=self.file if self.file else discord.utils.MISSING,
