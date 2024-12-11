@@ -145,6 +145,9 @@ class OptimizationResult(Result):
         if self.__has_value("power"):
             net_power = self.__get_value("power")
         out.append(str(net_power) + " MW")
+        sink = self.__get_value("sink") if self.__has_value("sink") else 0
+        out.append("SINK")
+        out.append(str(sink) + " Points/m")
         out.append("")
         out.append("OBJECTIVE VALUE")
         out.append(str(self.__prob.objective.value()))
@@ -284,6 +287,18 @@ class OptimizationResult(Result):
         out += "</TABLE>>"
         return out
 
+    @staticmethod
+    def __sink_viz_label(sink):
+        color = "lightblue"
+        out = "<"
+        out += '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">'
+        out += "<TR>"
+        out += '<TD COLSPAN="2" BGCOLOR="' + color + '">A.W.E.S.O.M.E. Sink</TD>'
+        out += "<TD>" + str(round(sink, 2)) + " points /m</TD>"
+        out += "</TR>"
+        out += "</TABLE>>"
+        return out
+
     def generate_graph_viz(self, filename: str) -> None:
         s = Digraph(
             "structs", format="png", filename=filename, node_attr={"shape": "record"}
@@ -319,6 +334,16 @@ class OptimizationResult(Result):
             for item_var, product in recipe.products().items():
                 product_amount = recipe_amount * product.minute_rate()
                 add_to_target(item_var, sources, recipe.viz_name(), product_amount)
+        # a.w.e.s.o.m.e sink
+        if self.__has_value("sink"):
+            s.node("sink", self.__sink_viz_label(self.__get_value("sink")), shape="plaintext")
+            for item in self.__db.items().values():
+                if not item.sink_value():
+                    continue
+                if not self.__has_value(item.sink_var()):
+                    continue
+                sink_amount = self.__get_value(item.sink_var())
+                add_to_target(item.var(), sinks, "sink", sink_amount)
         # power
         power_output = 0
         net_power = 0
@@ -377,6 +402,7 @@ class OptimizationResult(Result):
 
 
 POWER = "power"
+SINK = "sink"
 UNWEIGHTED_RESOURCES = "unweighted-resources"
 WEIGHTED_RESOURCES = "weighted-resources"
 MEAN_WEIGHTED_RESOURCES = "mean-weighted-resources"
@@ -398,11 +424,14 @@ class Optimizer:
             self.__variables[power_recipe] = pulp.LpVariable(power_recipe, upBound=0)
         for item in self.__db.items().values():
             self.__variables[item.var()] = pulp.LpVariable(item.var())
+            if item.sink_value():
+                self.__variables[item.sink_var()] = pulp.LpVariable(item.sink_var(), lowBound=0)
         for crafter in self.__db.crafters():
             self.__variables[crafter] = pulp.LpVariable(crafter, upBound=0)
         for generator_var, generator in self.__db.generators().items():
             self.__variables[generator_var] = pulp.LpVariable(generator_var, upBound=0)
         self.__variables[POWER] = pulp.LpVariable(POWER)
+        self.__variables[SINK] = pulp.LpVariable(SINK)
         self.__variables[UNWEIGHTED_RESOURCES] = pulp.LpVariable(UNWEIGHTED_RESOURCES)
         self.__variables[WEIGHTED_RESOURCES] = pulp.LpVariable(WEIGHTED_RESOURCES)
         self.__variables[MEAN_WEIGHTED_RESOURCES] = pulp.LpVariable(
@@ -416,6 +445,7 @@ class Optimizer:
 
         # For each item, create an equality for all inputs and outputs:
         #   products - ingredients = net output
+        # Rewritten as:
         #   products - ingredients - net output = 0
         for item_var, item in self.__db.items().items():
             var_coeff = {}  # variable => coefficient
@@ -444,6 +474,8 @@ class Optimizer:
                         var_coeff[
                             self.__variables[generator.var()]
                         ] = -generator.water_minute_rate()
+            if item.sink_value():
+                var_coeff[self.__variables[item.sink_var()]] = 1
             var_coeff[self.__variables[item.var()]] = 1
             # var_coeff[self.__variables[item.output().var()]] = -1
             self.__equalities.append(pulp.LpAffineExpression(var_coeff) == 0)
@@ -474,8 +506,18 @@ class Optimizer:
             power_coeff[self.__variables[generator_var]] = -generator.power_production()
         for recipe_var, recipe in self.__db.recipes().items():
             power_coeff[self.__variables[recipe_var]] = recipe.power_consumption()
-        power_coeff[self.__variables["power"]] = -1
+        power_coeff[self.__variables[POWER]] = -1
         self.__equalities.append(pulp.LpAffineExpression(power_coeff) == 0)
+
+        # Create a single sink equality for all items
+        sink_coeff = {}
+        for item_var, item in self.__db.items().items():
+            sink_value = item.sink_value()
+            if not sink_value:
+                continue
+            sink_coeff[self.__variables[item.sink_var()]] = sink_value
+        sink_coeff[self.__variables[SINK]] = -1
+        self.__equalities.append(pulp.LpAffineExpression(sink_coeff) == 0)
 
         unweighted_resources = {
             self.__variables["item:water"]: 0,
@@ -641,6 +683,10 @@ class Optimizer:
                     self.__variables[power_recipe_var] == 0, power_recipe_var
                 )
 
+        # Disable the sink variables unless the query specifies something about sink
+        if not query.has_sink_output():
+            prob.addConstraint(self.__variables[SINK] == 0, SINK)
+
         # Disable geothermal generators since they are "free" energy.
         if "generator:geo-thermal-generator" not in query_vars:
             prob += self.__variables["generator:geothermal-generator"] == 0
@@ -663,7 +709,7 @@ class Optimizer:
             f.write(str(prob))
 
         # Solve
-        status = prob.solve(PULP_CBC_CMD(msg=False))
+        status = prob.solve(PULP_CBC_CMD(msg=self.__debug))
         result = OptimizationResult(self.__db, self.__variables, prob, status, query)
 
         if self.__debug:

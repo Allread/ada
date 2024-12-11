@@ -84,13 +84,23 @@ class Item(Entity):
         return -1
 
     def sink_value(self) -> Optional[int]:
+        if self.is_liquid():
+            return None
+        if self.is_gas():
+            return None
         return int(self.__data["mResourceSinkPoints"]) if "mResourceSinkPoints" in self.__data else None
+
+    def sink_var(self) -> str:
+        return "sink:" + self.slug()
 
     def is_resource(self) -> bool:
         return self.__is_resource
 
     def is_liquid(self) -> bool:
         return self.__data["mForm"] == "RF_LIQUID"
+
+    def is_gas(self) -> bool:
+        return self.__data["mForm"] == "RF_GAS"
 
     def description(self):
         return self.__data["mDescription"]

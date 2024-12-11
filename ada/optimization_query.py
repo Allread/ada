@@ -135,6 +135,9 @@ class OptimizationQuery(Query):
     def has_power_output(self):
         return "power" in self.__outputs.elements
 
+    def has_sink_output(self):
+        return "sink" in self.__outputs.elements
+
     def __str__(self) -> str:
 
         outputs = []
